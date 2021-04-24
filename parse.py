@@ -1,6 +1,7 @@
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, List
 import argparse
 from collections import Counter
+import numpy as np
 import json
 import time
 import sys
@@ -77,6 +78,19 @@ def build_vocab(corpus) -> Dict[str, int]:
     for line in corpus:
         vocab.update(line.split())
     return {k: v for k, v in vocab.items()}
+
+
+def split_corpus(corpus, ratios: List[int]):
+    if sum(ratios) != 1:
+        ratios = np.cumsum([x/sum(ratios) for x in ratios])
+    else:
+        ratios = np.cumusm(ratios)
+    size = len(corpus)
+    indices = np.int64(np.floor(ratios * size))
+    splits = []
+    for x, y in zip([0, *indices[:-1]], indices):
+        splits.append(corpus[x:y])
+    return splits
 
 
 def load_corpus(filename):
