@@ -87,11 +87,13 @@ def load_corpus(filename):
     return corpus
 
 
-def get_dep_context(filename: str, chunk_size: int):
+def get_dep_context(filename: str, chunk_size: int, out_dir: str):
     _, logger = get_file_and_stream_logger("logs", "parser", "parser")
     logger.info(f"Chunk size is {chunk_size}")
     with open("vocab.json") as f:
         vocab = json.load(f)
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
     corpus = load_corpus(filename)
     split = filename.split(".")[0].split("_")[1]
     times = []
@@ -100,7 +102,9 @@ def get_dep_context(filename: str, chunk_size: int):
     # doc = nlp("this virus affects the body 's defence system so that it can not fight infection")
 
     # NOTE: continue from previous
-    output_files = [x for x in os.listdir(".") if x.startswith("output_")]
+    outfile_prefix = "pairs"
+    output_files = [x for x in os.listdir(out_dir)
+                    if x.startswith(f"{outfile_prefix}_") and x.endswith("json")]
     if output_files:
         indx = max(int(x.split(".")[0].split("_")[-1]) for x in output_files) + 1
     else:
@@ -125,7 +129,7 @@ def get_dep_context(filename: str, chunk_size: int):
                         left = sent.words[word.head - 1].text
                     if left in vocab and right in vocab and\
                        vocab[left] >= 100 and vocab[right] >= 100:
-                        pairs.append((left, right))
+                        pairs.append((left, right, word.deprel))
         if i % 10 == 9:
             logger.info(f"{i} out of {loops} iterations done")
             logger.info(f"Time taken = {timer.time} seconds")
@@ -138,18 +142,30 @@ def get_dep_context(filename: str, chunk_size: int):
             estimated_time = avg_time_per_loop * loops_remaining
             logger.info(f"Avg time per loop = {avg_time_per_loop} seconds\n" +
                         f"Estimated time remaining = {estimated_time / 3600} hours")
-        with open(f"output_{split}_{i:06}.json", "w") as f:
+        with open(f"dep_{split}_{i:06}.json", "w") as f:
+            json.dump(doc.to_dict(), f)
+        with open(f"pairs_{split}_{i:06}.json", "w") as f:
             json.dump(pairs, f)
-        logger.debug(f"Dumped file output_{split}_{i:06}.json")
+        logger.debug(f"Dumped files [dep,pairs]_{split}_{i:06}.json")
 
 
 def main(args):
-    get_dep_context(args.filename, args.chunk_size)
+    get_dep_context(args.filename, args.chunk_size, args.out_dir)
+
+
+def load_json_files(files):
+    data = []
+    for fl in files:
+        with open(fl) as f:
+            temp = json.load(f)
+            data.append("\n".join([" ".join(x) for x in temp]))
+    return data
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Dependency Parser")
     parser.add_argument("filename")
     parser.add_argument("--chunk-size", "-c", type=int, default=100)
+    parser.add_argument("--out-dir", "-o", type=str, default="out")
     args = parser.parse_args()
     main(args)
