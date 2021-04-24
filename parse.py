@@ -102,11 +102,12 @@ def get_dep_context(filename: str, chunk_size: int, out_dir: str):
     # doc = nlp("this virus affects the body 's defence system so that it can not fight infection")
 
     # NOTE: continue from previous
-    outfile_prefix = "pairs"
-    output_files = [x for x in os.listdir(out_dir)
-                    if x.startswith(f"{outfile_prefix}_") and x.endswith("json")]
-    if output_files:
-        indx = max(int(x.split(".")[0].split("_")[-1]) for x in output_files) + 1
+    deps_prefix = "deps"
+    pairs_prefix = "pairs"
+    pairs_files = [x for x in os.listdir(out_dir)
+                   if x.startswith(f"{pairs_prefix}_") and x.endswith("json")]
+    if pairs_files:
+        indx = max(int(x.split(".")[0].split("_")[-1]) for x in pairs_files) + 1
     else:
         indx = 0
 
@@ -142,11 +143,11 @@ def get_dep_context(filename: str, chunk_size: int, out_dir: str):
             estimated_time = avg_time_per_loop * loops_remaining
             logger.info(f"Avg time per loop = {avg_time_per_loop} seconds\n" +
                         f"Estimated time remaining = {estimated_time / 3600} hours")
-        with open(f"dep_{split}_{i:06}.json", "w") as f:
+        with open(os.path.join(out_dir, f"{deps_prefix}_{split}_{i:06}.json"), "w") as f:
             json.dump(doc.to_dict(), f)
-        with open(f"pairs_{split}_{i:06}.json", "w") as f:
+        with open(os.path.join(out_dir, f"{pairs_prefix}_{split}_{i:06}.json"), "w") as f:
             json.dump(pairs, f)
-        logger.debug(f"Dumped files [dep,pairs]_{split}_{i:06}.json")
+        logger.debug(f"Dumped files [{deps_prefix},{pairs_prefix}]_{split}_{i:06}.json")
 
 
 def main(args):
