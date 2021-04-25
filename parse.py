@@ -8,69 +8,8 @@ import sys
 import os
 import logging
 import stanza
-
-
-def get_file_and_stream_logger(logdir: str, logger_name: str,
-                               log_file_name: str,
-                               file_loglevel: Optional[str] = "debug",
-                               stream_loglevel: Optional[str] = "info",
-                               logger_level: Optional[str] = "debug") -> Tuple:
-    logger = logging.getLogger(logger_name)
-    formatter = logging.Formatter(datefmt='%Y/%m/%d %I:%M:%S %p', fmt='%(asctime)s %(message)s')
-    if not os.path.exists(logdir):
-        os.mkdir(logdir)
-    if not log_file_name.endswith('.log'):
-        log_file_name += '.log'
-    log_file = os.path.abspath(os.path.join(logdir, log_file_name))
-    file_handler = logging.FileHandler(log_file)
-    stream_handler = logging.StreamHandler(sys.stdout)
-    if stream_loglevel is not None and hasattr(logging, stream_loglevel.upper()):
-        stream_handler.setLevel(getattr(logging, stream_loglevel.upper()))
-    else:
-        stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(formatter)
-    if file_loglevel is not None and hasattr(logging, file_loglevel.upper()):
-        file_handler.setLevel(getattr(logging, file_loglevel.upper()))
-    else:
-        file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
-    if logger_level is not None and hasattr(logging, logger_level.upper()):
-        logger.setLevel(getattr(logging, logger_level.upper()))
-    else:
-        logger.setLevel(logging.DEBUG)
-    return log_file, logger
-
-
-class Timer:
-    def __init__(self, accumulate=False):
-        self._accumulate = accumulate
-        self._time = 0
-
-    def __enter__(self):
-        self._start = time.time()
-
-    def __exit__(self, *args):
-        if self.accumulate:
-            self._time += time.time() - self._start
-        else:
-            self._time = time.time() - self._start
-
-    def clear(self):
-        self._time = 0
-
-    @property
-    def time(self):
-        return self._time
-
-    @property
-    def accumulate(self):
-        return self._accumulate
-
-    @property
-    def as_dict(self):
-        return {"time": self._time}
+from common_pyutil.log import get_file_and_stream_logger
+from common_pyutil.monitor import Timer
 
 
 def build_vocab(corpus) -> Dict[str, int]:
@@ -80,11 +19,11 @@ def build_vocab(corpus) -> Dict[str, int]:
     return {k: v for k, v in vocab.items()}
 
 
-def split_corpus(corpus, ratios: List[int]):
+def split_corpus(corpus: List[str], ratios: List[int]):
     if sum(ratios) != 1:
         ratios = np.cumsum([x/sum(ratios) for x in ratios])
     else:
-        ratios = np.cumusm(ratios)
+        ratios = np.cumsum(ratios)
     size = len(corpus)
     indices = np.int64(np.floor(ratios * size))
     splits = []
