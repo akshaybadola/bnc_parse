@@ -101,7 +101,7 @@ def load_corpus(filename):
     return corpus
 
 
-def get_dep_context(filename: str, chunk_size: int, out_dir: str):
+def get_dep_context(filename: str, chunk_size: int, out_dir: str, scan: bool = False):
     _, logger = get_file_and_stream_logger("logs", "parser", "parser")
     logger.info(f"Chunk size is {chunk_size}")
     with open("vocab.json") as f:
@@ -113,20 +113,25 @@ def get_dep_context(filename: str, chunk_size: int, out_dir: str):
     times = []
     timer = Timer(True)
     nlp = stanza.Pipeline(lang='en', processors='tokenize,pos,lemma,depparse')
-    # doc = nlp("this virus affects the body 's defence system so that it can not fight infection")
 
     # NOTE: continue from previous
     deps_prefix = "deps"
     pairs_prefix = "pairs"
     pairs_files = [x for x in os.listdir(out_dir)
-                   if x.startswith(f"{pairs_prefix}_") and x.endswith("json")]
-    if pairs_files:
-        indx = max(int(x.split(".")[0].split("_")[-1]) for x in pairs_files) + 1
-    else:
+                   if x.startswith(f"{pairs_prefix}_") and f"_{split}_" in x
+                   and x.endswith("json")]
+    if not pairs_files or scan:
         indx = 0
+    else:
+        indx = max(int(x.split(".")[0].split("_")[-1]) for x in pairs_files) + 1
 
     loops = len(corpus)//chunk_size
     for i in range(indx, loops):
+        out_deps_file = os.path.join(out_dir, f"{deps_prefix}_{split}_{i:06}.json")
+        out_pairs_file = os.path.join(out_dir, f"{pairs_prefix}_{split}_{i:06}.json")
+        if os.path.exists(out_deps_file) and os.path.exists(out_pairs_file):
+            logger.debug(f"Files for index {i} already exist for this iteration")
+            continue
         lines = corpus[chunk_size*i:chunk_size*(i+1)]
         with timer:
             doc = nlp(". ".join(lines))
@@ -157,15 +162,15 @@ def get_dep_context(filename: str, chunk_size: int, out_dir: str):
             estimated_time = avg_time_per_loop * loops_remaining
             logger.info(f"Avg time per loop = {avg_time_per_loop} seconds\n" +
                         f"Estimated time remaining = {estimated_time / 3600} hours")
-        with open(os.path.join(out_dir, f"{deps_prefix}_{split}_{i:06}.json"), "w") as f:
+        with open(out_deps_file, "w") as f:
             json.dump(doc.to_dict(), f)
-        with open(os.path.join(out_dir, f"{pairs_prefix}_{split}_{i:06}.json"), "w") as f:
+        with open(out_pairs_file, "w") as f:
             json.dump(pairs, f)
         logger.debug(f"Dumped files [{deps_prefix},{pairs_prefix}]_{split}_{i:06}.json")
 
 
 def main(args):
-    get_dep_context(args.filename, args.chunk_size, args.out_dir)
+    get_dep_context(args.filename, args.chunk_size, args.out_dir, args.scan)
 
 
 def load_json_files(files):
@@ -182,5 +187,6 @@ if __name__ == '__main__':
     parser.add_argument("filename")
     parser.add_argument("--chunk-size", "-c", type=int, default=100)
     parser.add_argument("--out-dir", "-o", type=str, default="out")
+    parser.add_argument("--scan", "-s", action="store_true", help="Scann for missing ouput files")
     args = parser.parse_args()
     main(args)
